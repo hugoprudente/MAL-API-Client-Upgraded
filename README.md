@@ -12,12 +12,32 @@ Originally created by [@JFryy](https://github.com/JFryy/MAL-API-Client), dropped
 Unsure what to do? [Check out our documentation](https://mal-api-client-upgraded.readthedocs.io) </br>
 
 ## Installation
-**Python 3.9 or newer required**, this is due to changes in type hinting guidelines, for more info regarding this issue read [PEP 585](https://peps.python.org/pep-0585/)  
-Install the latest stable version from [PyPI](https://pypi.org/project/malclient-upgraded/)  
-`pip install malclient-upgraded`  
+**Python 3.14+ required.**
 
-Or current unstable version directly from GitHub:  
-`pip install git+https://github.com/ModerNews/MAL-API-Client-Upgraded`
+From PyPI:
+
+```bash
+pip install malclient-upgraded
+```
+
+Development (recommended: [uv](https://docs.astral.sh/uv/) and a local `.venv` on Python 3.14):
+
+```bash
+uv sync --extra dev
+uv run pytest
+```
+
+Or from GitHub:
+
+```bash
+pip install git+https://github.com/hugoprudente/MAL-API-Client-Upgraded
+```
+
+## API versions
+
+- **REST** (default): `Client(api_version="v2")` → `https://api.myanimelist.net/v2/` ([official API](https://myanimelist.net/apiconfig/references/api/v2))
+- **REST legacy**: `api_version="v1"` → `https://api.myanimelist.net/v1/` (deprecated by MAL; for explicit compatibility only)
+- **OAuth** always uses `https://myanimelist.net/v1/oauth2/` regardless of `api_version`
 
 
 ## Authentication
@@ -27,7 +47,7 @@ Main auth requires access token:
 ```python
 import malclient
 
-malclient.client(access_token=token)
+malclient.Client(access_token=token)
 ```
 
 Alternatively can authenticate using your client ID
@@ -35,7 +55,7 @@ Alternatively can authenticate using your client ID
 ```python
 import malclient
 
-malclient.client(client_id=id)
+malclient.Client(client_id=id)
 ```
 
 You can generate token old-fashioned way using [this tutorial](https://myanimelist.net/blog.php?eid=835707)  
@@ -44,7 +64,8 @@ Or you can use function implemented in API
 ```python
 import malclient
 
-print(malclient.generate_token("<YOUR_CLIENT_ID>", "<YOUR_CLIENT_SECRET>"))
+# Interactive OAuth (opens browser on supported platforms):
+client = malclient.Client.generate_new_token("<CLIENT_ID>", "<CLIENT_SECRET>")
 ```
 
 Although remember to call it only once and, then use the token generated this way, optionally with `Client.refresh_bearer_token` method  
@@ -61,14 +82,16 @@ client.refresh_bearer_token(
 For any other issues regarding authentication, [please refer to the following guide](https://myanimelist.net/blog.php?eid=835707).
 
 ## Quick Start Examples
-I contained some examples of usage of this wrapper, note that all responses are converted to python objects using pydantic
+Responses are Pydantic v2 models (`model_dump()`, `model_validate()`).
 
 ```python
 import malclient
 
-# nsfw filter is enabled by default, although it's recommended to disable it if your results are missing titles, 
-#  you can also enable/disable it for every query individually 
-client = malclient.Client(access_token="<your-access-token>", nsfw=True)
+client = malclient.Client(
+    access_token="<your-access-token>",
+    nsfw=True,
+    api_version="v2",
+)
 
 # search anime, returns list
 anime = client.search_anime("cowboy", limit=20)

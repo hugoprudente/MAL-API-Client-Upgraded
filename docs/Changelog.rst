@@ -2,6 +2,14 @@
 Changelog
 =========
 
+Version 2.0
+===========
+
+* **Python 3.14+** and **Pydantic v2** (use ``model_dump`` / ``model_validate`` instead of v1 APIs)
+* Selectable MAL REST base: ``Client(api_version="v2")`` (default) or ``"v1"``; OAuth remains on ``myanimelist.net/v1/oauth2``
+* Centralized URLs in ``malclient.urls``; fixed token refresh headers
+* Packaging: PEP 621 ``pyproject.toml``, ``uv`` workflow, CI on Python 3.14
+
 Version 1.4
 ===========
 .. warning::

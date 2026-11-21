@@ -1,32 +1,44 @@
 import datetime
+import json
+import logging
 
 import requests
-from .exceptions import *
-import logging
+
+from .exceptions import (
+    APIException,
+    BadRequest,
+    Forbidden,
+    NotFound,
+    Unauthorized,
+)
 
 __all__ = ['APICaller']
 
+DEFAULT_TIMEOUT = 30
+
 
 class APICaller(object):
-    def __init__(self, base_url, headers):
+    def __init__(self, base_url, headers, *, timeout: float = DEFAULT_TIMEOUT):
         self._base_url = base_url
         self._headers = headers
+        self._timeout = timeout
 
     def call(self, uri, method="get", params=None, *args, **kwargs):
         requester = getattr(requests, method.lower())
         url = self._base_url + uri
+        kwargs.setdefault("timeout", self._timeout)
         logging.info(f"{method.upper()} {url} Query Parameters: {params}")
-        response = requester(url=url,
-                             headers=self._headers,
-                             params=params,
-                             *args,
-                             **kwargs)
-        now = datetime.datetime.now()
+        response = requester(
+            url=url,
+            headers=self._headers,
+            params=params,
+            *args,
+            **kwargs,
+        )
         if response.status_code < 400:
             response = self._parse_response(response, method)
         elif 400 <= response.status_code:
             self._parse_error(response, method, url)
-        end = datetime.datetime.now()
         return response
 
     def _parse_response(self, response, method):
@@ -45,78 +57,62 @@ class APICaller(object):
 
         :param json_obj: json object to parse
         """
-        # If json_obj is list, then we need to recursively parse every element of it
         if isinstance(json_obj, list):
             list_response = []
-            for json_obj in json_obj:
-                new_dict = self._parse_json(json_obj)
-                list_response.append(new_dict if new_dict != {} else json_obj)
+            for item in json_obj:
+                new_dict = self._parse_json(item)
+                list_response.append(new_dict if new_dict != {} else item)
             return list_response
 
-        # Logic for parsing dictionary response
         elif isinstance(json_obj, dict):
-            new_dict = json_obj.copy()  # Create copy of json_obj to avoid messing original object
+            new_dict = json_obj.copy()
 
-            # Case #1: nodes are representants of anime/manga/character/staff/etc. in nested objects,
-            # in fields like: animeography, anime search, anime ranking, etc.
-            # Example: https://api.myanimelist.net/v2/characters/161357?fields=animeography
-            # Solution: recursively parse node as top level object and merge it with parent
             if "node" in json_obj:
                 new_dict = new_dict | json_obj['node']
                 for k, v in new_dict.items():
                     if isinstance(v, dict) and "node" in v and len(v) == 1:
                         new_dict[k] = new_dict[k]['node']
 
-            # Case #2: list_status is additional field present in anime/manga lists besides node
-            # Example: https://api.myanimelist.net/v2/users/ModerNews/animelist?fields=list_status&limit=5
-            # Solution: merge list_status with node and make it a part of AnimeObject object
             if "list_status" in json_obj:
                 new_dict = new_dict | {'list_status': json_obj['list_status']}
 
-            # Case #3: ranking is additional field present in anime/manga rankings besides node
-            # Example: https://api.myanimelist.net/v2/anime/ranking?ranking_type=bypopularity&limit=5
-            # Solution: merge ranking with node and make it a part of AnimeObject object
             if "ranking" in json_obj:
                 new_dict = new_dict | {'ranking': json_obj['ranking']}
 
-            # Case #4: role is additional field present in anime/manga characters/staff besides node
-            # Example: https://api.myanimelist.net/v2/characters/161357?fields=animeography
-            # Solution: merge role with node and make it a part of AnimeObject object
             if "role" in json_obj:
                 new_dict = new_dict | {'role': json_obj['role']}
 
-            # Case #5 (pagination): response is paginated and object and is split into data and paging objects
-            # Example: https://api.myanimelist.net/v2/anime/ranking?ranking_type=bypopularity&limit=5
-            # Solution: parse data object individually (to cover cases such as data being list of elements)
-            # and return data and paging objects as one dictionary to be converted into PagedResult object
             if json_obj and "data" in json_obj:
                 list_response = self._parse_json(json_obj["data"])
-                if "paging" in json_obj:  # Make sure that paging object is present in response
+                if "paging" in json_obj:
                     json_obj = {"data": list_response, "paging": json_obj["paging"]}
                 return json_obj
 
-            # Case #6: animeography is additional field representing anime objects present in character/staff endpoints
-            # with node field and additional role field at the top level.
-            # Example: https://api.myanimelist.net/v2/characters/161357?fields=first_name,last_name,alternative_name,main_picture,biography,pictures,animeography,num_favorites
-            # Solution: recursively parse each entry of animeography list to cover both node and role fields
             if "animeography" in json_obj:
                 response_json = json_obj | {'animeography': self._parse_json(json_obj['animeography'])}
                 return response_json
             return new_dict
 
     @staticmethod
+    def _error_body(response) -> dict:
+        try:
+            return response.json()
+        except (json.JSONDecodeError, ValueError):
+            return {}
+
+    @staticmethod
     def _parse_error(response, method, url):
-        logging.error(f"{method.upper()} {url} {response.status_code} {json.loads(response.text)['error']}: {json.loads(response.text)['message'] if 'message' in json.loads(response.text) or len(json.loads(response.text)) != 0 else ''}")
-        if str(response.status_code) == "400" or str(response.status_code).lower() == "400 bad request":
+        body = APICaller._error_body(response)
+        error = body.get("error", "")
+        message = body.get("message", response.text or "")
+        logging.error(f"{method.upper()} {url} {response.status_code} {error}: {message}")
+        if response.status_code == 400:
             raise BadRequest(response)
-        elif str(response.status_code) == "401" or str(response.status_code).lower() == "401 unauthorized":
+        elif response.status_code == 401:
             raise Unauthorized(response)
-        elif str(response.status_code) == "403" or str(response.status_code).lower() == "403 forbidden":
+        elif response.status_code == 403:
             raise Forbidden(response)
-        elif str(response.status_code) == "404" or str(response.status_code).lower() == "404 not found":
+        elif response.status_code == 404:
             raise NotFound(response)
         else:
-            raise APIException(response.status_code, json.loads(response.text)['message'], response)
-
-
-
+            raise APIException(response.status_code, message, response)

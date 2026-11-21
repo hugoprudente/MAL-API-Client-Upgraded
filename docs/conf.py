@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'Malclient-Upgraded'
-copyright = '2022, ModerNews'
-author = 'ModerNews'
+copyright = '2022-2026, ModerNews; Hugo Prudente'
+author = 'ModerNews; Hugo Prudente'
 
 # The full version, including alpha/beta/rc tags
-release = '1.3'
+release = '2.0'
 
 
 # -- General configuration ---------------------------------------------------

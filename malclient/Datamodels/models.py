@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Union, Optional
 
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, ConfigDict, HttpUrl, field_validator, model_validator
 
 from .enums import *
 from .pagination import PagedResult
@@ -20,8 +20,7 @@ class MALBaseModel(BaseModel):
     Helper model class used to generate all models used by this API
     """
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class Asset(MALBaseModel):
@@ -30,7 +29,7 @@ class Asset(MALBaseModel):
     Asset object, commonly representing an image with two resolutions
 
     """
-    large: Optional[HttpUrl]
+    large: Optional[HttpUrl] = None
     medium: HttpUrl
 
     def __str__(self):
@@ -45,7 +44,7 @@ class Node(MALBaseModel):
     """
     id: int
     title: str
-    main_picture: Optional[Asset]
+    main_picture: Optional[Asset] = None
 
     def __str__(self):
         return self.title
@@ -70,7 +69,7 @@ class AnimeSeason(MALBaseModel):
         return self.year == other.year and self.season == other.season
 
 
-class Genre(BaseModel):
+class Genre(MALBaseModel):
     """
 
     Anime or Manga Genre
@@ -109,7 +108,7 @@ class Broadcast(MALBaseModel):
 
     """
     day_of_the_week: str
-    start_time: Optional[datetime.time]
+    start_time: Optional[datetime.time] = None
 
 
 class Statistics(MALBaseModel):
@@ -124,10 +123,12 @@ class Statistics(MALBaseModel):
     dropped: int
     plan_to_watch: int
 
-    def __init__(self, **data):
-        if 'status' in data.keys():
-            data = data['status'] | {'num_list_users': data['num_list_users']}
-        super().__init__(**data)
+    @model_validator(mode="before")
+    @classmethod
+    def flatten_status(cls, data):
+        if isinstance(data, dict) and "status" in data:
+            return {**data["status"], "num_list_users": data["num_list_users"]}
+        return data
 
 
 class Relation(MALBaseModel):
@@ -157,19 +158,19 @@ class MyMangaListStatus(MALBaseModel):
     Status from users manga list
 
     """
-    score: Optional[int]
-    status: Optional[str]
-    is_rereading: Optional[bool]
-    updated_at: Union[datetime.datetime, str, None]
-    num_chapters_read: Optional[int]
-    num_volumes_read: Optional[int]
-    start_date: Union[datetime.date, str, None]
-    finish_date: Union[datetime.date, str, None]
-    priority: Optional[int]
-    num_times_reread: Optional[int]
-    reread_value: Optional[int]
-    tags: Optional[list[str]]
-    comments: Optional[str]
+    score: Optional[int] = None
+    status: Optional[str] = None
+    is_rereading: Optional[bool] = None
+    updated_at: Union[datetime.datetime, str, None] = None
+    num_chapters_read: Optional[int] = None
+    num_volumes_read: Optional[int] = None
+    start_date: Union[datetime.date, str, None] = None
+    finish_date: Union[datetime.date, str, None] = None
+    priority: Optional[int] = None
+    num_times_reread: Optional[int] = None
+    reread_value: Optional[int] = None
+    tags: Optional[list[str]] = None
+    comments: Optional[str] = None
 
 
 class MyAnimeListStatus(MALBaseModel):
@@ -183,13 +184,13 @@ class MyAnimeListStatus(MALBaseModel):
     is_rewatching: bool
     updated_at: Union[datetime.datetime, str]
     num_episodes_watched: int
-    start_date: Union[datetime.date, str, None]
-    finish_date: Union[datetime.date, str, None]
-    priority: Optional[int]
-    num_times_rewatched: Optional[int]
-    rewatch_value: Optional[int]
-    tags: Optional[list[str]]
-    comments: Optional[str]
+    start_date: Union[datetime.date, str, None] = None
+    finish_date: Union[datetime.date, str, None] = None
+    priority: Optional[int] = None
+    num_times_rewatched: Optional[int] = None
+    rewatch_value: Optional[int] = None
+    tags: Optional[list[str]] = None
+    comments: Optional[str] = None
 
 class Video(MALBaseModel):
     """
@@ -212,7 +213,7 @@ class Magazine(MALBaseModel):
 
 class Serialization(MALBaseModel):
     node: Magazine
-    role: Optional[str]
+    role: Optional[str] = None
 
 
 class PersonBase(MALBaseModel):
@@ -228,7 +229,7 @@ class MangaAuthor(MALBaseModel):
 
 class RankingObject(MALBaseModel):
     rank: int
-    previous_rank: Optional[int]  # docs states that this exist, did not find it in response yet
+    previous_rank: Optional[int] = None  # docs states that this exist, did not find it in response yet
 
 
 class MalEntryObject(Node):
@@ -237,29 +238,38 @@ class MalEntryObject(Node):
     Base model for both anime and manga entries
 
     """
-    alternative_titles: Optional[dict]
-    start_date: Union[datetime.date, str, None]
-    end_date: Union[datetime.date, str, None]
-    synopsis: Optional[str]
-    mean: Optional[float]
-    rank: Optional[int]
-    popularity: Optional[int]
-    num_list_users: Optional[int]
-    num_scoring_users: Optional[int]
-    nsfw: Optional[Nsfw]
-    genres: Optional[list[Genre]]
-    created_at: Union[datetime.datetime, str, None]
-    updated_at: Union[datetime.datetime, str, None]
-    media_type: Union[AnimeType, MangaType, None]
-    status: Union[AnimeStatus, MangaStatus, None]
-    my_list_status: Union[MyAnimeListStatus, MyMangaListStatus, None]
-    pictures: Optional[list[Asset]]
-    background: Optional[str]
-    related_anime: Optional[list[Relation]]
-    related_manga: Optional[list[Relation]]
-    recommendations: Optional[list[Recommendation]]
-    list_status: Optional[Union[MyAnimeListStatus, MyMangaListStatus]]  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
-    ranking: Optional[RankingObject]
+    alternative_titles: Optional[dict] = None
+    start_date: Union[datetime.date, str, None] = None
+    end_date: Union[datetime.date, str, None] = None
+    synopsis: Optional[str] = None
+    mean: Optional[float] = None
+    rank: Optional[int] = None
+    popularity: Optional[int] = None
+    num_list_users: Optional[int] = None
+    num_scoring_users: Optional[int] = None
+    nsfw: Optional[Nsfw] = None
+    genres: Optional[list[Genre]] = None
+    created_at: Union[datetime.datetime, str, None] = None
+    updated_at: Union[datetime.datetime, str, None] = None
+    media_type: Union[AnimeType, MangaType, None] = None
+    status: Union[AnimeStatus, MangaStatus, None] = None
+    my_list_status: Union[MyAnimeListStatus, MyMangaListStatus, None] = None
+    pictures: Optional[list[Asset]] = None
+    background: Optional[str] = None
+    related_anime: Optional[list[Relation]] = None
+    related_manga: Optional[list[Relation]] = None
+    recommendations: Optional[list[Recommendation]] = None
+    list_status: Optional[Union[MyAnimeListStatus, MyMangaListStatus]] = None  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
+    ranking: Optional[RankingObject] = None
+
+    @field_validator("mean", mode="before")
+    @classmethod
+    def coerce_mean(cls, value):
+        if value is None or value == "":
+            return None
+        if isinstance(value, str):
+            return float(value)
+        return value
 
     def __eq__(self, other):
         return self.id == other.id
@@ -277,19 +287,19 @@ class AnimeObject(MalEntryObject):
     Model of anime fetched from myanimelist
 
     """
-    media_type: Optional[AnimeType]
-    status: Optional[AnimeStatus]
-    my_list_status: Optional[MyAnimeListStatus]
-    num_episodes: Optional[int]
-    start_season: Optional[AnimeSeason]
-    broadcast: Optional[Broadcast]
-    source: Optional[Union[AnimeSource, str]]
-    average_episode_duration: Optional[int]
-    rating: Optional[Rating]
-    studios: Optional[list[Studio]]
-    statistics: Optional[Statistics]
-    videos: Optional[list[Video]]
-    list_status: Union[MyAnimeListStatus, None]  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
+    media_type: Optional[AnimeType] = None
+    status: Optional[AnimeStatus] = None
+    my_list_status: Optional[MyAnimeListStatus] = None
+    num_episodes: Optional[int] = None
+    start_season: Optional[AnimeSeason] = None
+    broadcast: Optional[Broadcast] = None
+    source: Optional[Union[AnimeSource, str]] = None
+    average_episode_duration: Optional[int] = None
+    rating: Optional[Rating] = None
+    studios: Optional[list[Studio]] = None
+    statistics: Optional[Statistics] = None
+    videos: Optional[list[Video]] = None
+    list_status: Union[MyAnimeListStatus, None] = None  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
 
     def populate(self, client):
         """
@@ -312,14 +322,14 @@ class MangaObject(MalEntryObject):
     Some fields may not be mentioned in official documentation
 
     """
-    media_type: Union[MangaType, str, None]
-    status: Union[MangaStatus, str, None]
-    my_list_status: Optional[MyMangaListStatus]
-    num_volumes: Optional[int]
-    num_chapters: Optional[int]
-    authors: Optional[list[MangaAuthor]]
-    serialization: Optional[list[Serialization]]
-    list_status: Union[MyMangaListStatus, None]  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
+    media_type: Union[MangaType, str, None] = None
+    status: Union[MangaStatus, str, None] = None
+    my_list_status: Optional[MyMangaListStatus] = None
+    num_volumes: Optional[int] = None
+    num_chapters: Optional[int] = None
+    authors: Optional[list[MangaAuthor]] = None
+    serialization: Optional[list[Serialization]] = None
+    list_status: Union[MyMangaListStatus, None] = None  # IMPORTANT: This is not the same as my_anime_list_status, this is for my_lsit endpoints only
 
     def populate(self, client):
         """
@@ -357,19 +367,19 @@ class User(MALBaseModel):
     id: int
     name: str
     picture: str
-    gender: Optional[str]
-    birthday: Union[datetime.date, str, None]
-    location: Optional[str]
-    joined_at: Union[datetime.datetime, str, None]
-    time_zone: Optional[str]
-    is_supporter: Optional[bool]
-    anime_statistics: Optional[UserAnimeStatistics]
+    gender: Optional[str] = None
+    birthday: Union[datetime.date, str, None] = None
+    location: Optional[str] = None
+    joined_at: Union[datetime.datetime, str, None] = None
+    time_zone: Optional[str] = None
+    is_supporter: Optional[bool] = None
+    anime_statistics: Optional[UserAnimeStatistics] = None
 
 
 class ForumAuthor(MALBaseModel):
     id: int
     name: str
-    forum_avator: Optional[str]  # It is not a typo, goddamn MAL
+    forum_avator: Optional[str] = None  # It is not a typo, goddamn MAL
 
 
 class ForumTopicDetail(PagedResult):
@@ -490,22 +500,22 @@ class Animeography(AnimeObject):
 
     This object is only available in Character object.
     """
-    role: Optional[str]
+    role: Optional[str] = None
 
 
 class Character(PersonBase):
-    role: Optional[str]
-    alternative_name: Optional[str]
-    main_picture: Optional[Asset]
-    biography: Optional[str]
-    pictures: Optional[list[Asset]]
-    animeography: Optional[list[Animeography]]
-    num_favorites: Optional[int]
+    role: Optional[str] = None
+    alternative_name: Optional[str] = None
+    main_picture: Optional[Asset] = None
+    biography: Optional[str] = None
+    pictures: Optional[list[Asset]] = None
+    animeography: Optional[list[Animeography]] = None
+    num_favorites: Optional[int] = None
 
 
 class Person(PersonBase):
-    alternative_names: Optional[list[str]]
-    num_favorites: Optional[int]
-    main_picture: Optional[Asset]
-    birthday: Optional[datetime.date]
-    more: Optional[str]
+    alternative_names: Optional[list[str]] = None
+    num_favorites: Optional[int] = None
+    main_picture: Optional[Asset] = None
+    birthday: Optional[datetime.date] = None
+    more: Optional[str] = None

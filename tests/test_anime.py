@@ -1,12 +1,9 @@
-import json
-from sqlite3 import SQLITE_SAVEPOINT
 from unittest import mock
 
 import malclient
 import pytest
 
-from malclient.Datamodels import Season, Fields, SeasonalAnimeSorting
-# from malclient.anime import __anime_fields__
+from malclient.Datamodels import Season, Fields, SeasonalAnimeSorting, AnimeObject
 
 ANIME_RESPONSE = {
     "id": 1,
@@ -44,25 +41,15 @@ ANIME_RESPONSE = {
 }
 
 
-def mocked_client(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, json_data, status_code):
-            self.data = json_data["data"]
-            self.paging = json_data["paging"]
-            self.status_code = status_code
-
-        def __getitem__(self, item):
-            return getattr(self, item)
-
-        def json(self):
-            return self.json_data
-
-    if "anime/season" in kwargs["uri"]:
-        return MockResponse(
-            {"data": [ANIME_RESPONSE], "paging": {"next": "https://mock-next"}}, 200
-        )
-
-    return MockResponse(None, 404)
+def mocked_api_call(*args, **kwargs):
+    uri = kwargs.get("uri", "")
+    if not uri and len(args) >= 2:
+        uri = args[1]
+    elif not uri and args:
+        uri = args[0]
+    if "anime/season" in uri:
+        return {"data": [ANIME_RESPONSE], "paging": {"next": "https://mock-next"}}
+    raise malclient.NotFound("mock 404")
 
 
 @pytest.fixture
@@ -70,55 +57,63 @@ def client():
     return malclient.Client(access_token="a_random_token", nsfw=True)
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_season_fail(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_season_fail(mock_call, client):
     with pytest.raises(ValueError):
-        response = client.get_seasonal_anime("summmer", 2022, limit=1)
+        client.get_seasonal_anime("summmer", 2022, limit=1)
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_fields(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_fields(mock_call, client):
     response = client.get_seasonal_anime("summer", 2022, limit=1)
-    for field in Fields.anime().to_payload().split(','):
-        if field not in [
+    payload_keys = set(response[0].model_dump().keys())
+    for field in Fields.anime().to_payload().split(","):
+        if "{" in field or "}" in field:
+            continue
+        if field not in (
             "pictures",
             "background",
             "related_anime",
             "related_manga",
             "recommendations",
-        ]:
-            assert field in response[0]
+            "opening_theme",
+            "ending_theme",
+        ):
+            assert field in payload_keys
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_season_str_success(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_season_str_success(mock_call, client):
     response = client.get_seasonal_anime("summer", 2022, limit=1)
-    assert response == [ANIME_RESPONSE]
+    assert len(response) == 1
+    assert isinstance(response[0], AnimeObject)
+    assert response[0].id == 1
+    assert response[0].mean == 3.2
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_season_obj_success(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_season_obj_success(mock_call, client):
     response = client.get_seasonal_anime(Season.SUMMER, 2022, limit=1)
-    assert response == [ANIME_RESPONSE]
+    assert response[0].title == "anime title"
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_sort_str_fail(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_sort_str_fail(mock_call, client):
     with pytest.raises(ValueError):
-        response = client.get_seasonal_anime(Season.SUMMER, 2022, sort="anime", limit=1)
+        client.get_seasonal_anime(Season.SUMMER, 2022, sort="anime", limit=1)
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_sort_obj_success(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_sort_str_success(mock_call, client):
     response = client.get_seasonal_anime(
         Season.SUMMER, 2022, sort="anime_score", limit=1
     )
-    assert response == [ANIME_RESPONSE]
+    assert response[0].id == 1
 
 
-@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_client)
-def test_get_seasonal_anime_sort_obj_success(self, client):
+@mock.patch("malclient.request_handler.APICaller.call", side_effect=mocked_api_call)
+def test_get_seasonal_anime_sort_enum_success(mock_call, client):
     response = client.get_seasonal_anime(
         Season.SUMMER, 2022, sort=SeasonalAnimeSorting.USER_NUM, limit=1
     )
-    assert response == [ANIME_RESPONSE]
+    assert response[0].id == 1

@@ -1,7 +1,53 @@
 [build-system]
-requires = [
-    "setuptools~=57.0.0",
-    "requests~=2.27.1",
-    "pydantic~=1.9.0",
-]
+requires = ["setuptools>=75.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "malclient-upgraded"
+version = "2.0.0"
+description = "Object-oriented Python client for MyAnimeList's official REST API"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.14"
+authors = [
+    { name = "ModerNews", email = "polski.gruzin.biz@gmail.com" },
+    { name = "Hugo Prudente", email = "hugo.kenshin+github@gmail.com" },
+]
+keywords = ["myanimelist", "mal", "anime", "manga", "api"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+dependencies = [
+    "pydantic>=2.10",
+    "requests>=2.32",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.14",
+]
+docs = [
+    "sphinx>=8.0",
+    "autodoc-pydantic>=2.0",
+    "enum-tools[sphinx]>=0.13",
+    "sphinx-toolbox>=3.8",
+    "sphinxawesome-theme>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hugoprudente/MAL-API-Client-Upgraded"
+Documentation = "https://mal-api-client-upgraded.readthedocs.io"
+
+[tool.setuptools.packages.find]
+include = ["malclient*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

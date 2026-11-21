@@ -1,8 +1,3 @@
-setuptools~=57.0.0
-requests~=2.27.1
-pydantic~=1.9.0
-sphinx~=4.4.0
-autodoc-pydantic~=1.6.1
-autodocsumm~=0.2.7
-enum_tools[sphinx]~=0.9.0
-pytest~=7.1.2
+# Legacy pin file; use: uv sync --extra dev
+# Runtime: see pyproject.toml [project.dependencies]
+-e .
